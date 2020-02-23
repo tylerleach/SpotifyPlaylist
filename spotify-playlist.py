@@ -1,7 +1,6 @@
 import os, requests, json
 from secrets import spotify_token, spotify_user_id
 
-# TODO: Add function that checks if the user already has a playist of specified name before attempting to create a new playlist as otherwise it will create duplicates
 class SpotifyPlaylist:
     def __init__(self):
         # Dict to store the artist name and song title
@@ -18,10 +17,17 @@ class SpotifyPlaylist:
             self.all_song_info[artist] = track
         f.close()
     
-    def create_playlist(self):
+    def create_playlist(self, playlist_name):
         # Look at https://developer.spotify.com/console/post-playlists/ for details on spotify API for creating playlists
+        playlists = self.get_user_playlists()
+
+        # Check if playlist already exists, if it does then return its id
+        for playlist in playlists:
+            if playlist["name"] == playlist_name:
+                return playlist["id"]
+
         request_body = json.dumps({
-            "name": "Discovered Songs",
+            "name": playlist_name,
             "description": "Songs I have come accross and liked.",
             "public": False
         })
@@ -41,6 +47,7 @@ class SpotifyPlaylist:
         # Check out the example response at https://developer.spotify.com/documentation/web-api/reference/playlists/create-playlist/
         return response_json["id"]
 
+    ''' Gets the uri of a specified track and returns it '''
     def get_uri(self, song_name, artist):
         query = "https://api.spotify.com/v1/search?query={}+{}&type=track&offset=0&limit=20".format(
             song_name,
@@ -60,10 +67,28 @@ class SpotifyPlaylist:
         uri = songs[0]["uri"]
         return uri
 
+    ''' Gets the current users playlists and returns them '''
+    def get_user_playlists(self):
+        query = "https://api.spotify.com/v1/me/playlists"
+
+        response = requests.get(
+            query,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {}".format(spotify_token)
+            }
+        )
+
+        response_json = response.json()
+        playlists = response_json["items"]
+        return playlists
+
     def add_songs(self):
         # Check out the docs https://developer.spotify.com/documentation/web-api/reference/playlists/add-tracks-to-playlist/
         # NOTE: Spotify only lets you add 100 songs per request max
-        playlist_id = self.create_playlist()
+
+        # NOTE: We are hard coding in the playlist name but this can be changed later for better usability and customization for the user
+        playlist_id = self.create_playlist("Discovered Songs")
 
         uris = []
         for key in self.all_song_info:
@@ -86,7 +111,6 @@ class SpotifyPlaylist:
 
         response_json = response.json()
         print(response_json)
-
 
 
 
